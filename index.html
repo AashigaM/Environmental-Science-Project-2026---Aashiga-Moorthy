@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sunnyvale Air Quality</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --cream: #f7f4ef; --warm-white: #fdfcf9; --sage: #7d9b76;
+      --sage-dark: #4a6741; --taupe: #c4b49a; --text: #2c2c2a;
+      --text-muted: #8a8478; --border: #e2d9ce;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Jost', sans-serif; background: var(--warm-white); color: var(--text); font-weight: 300; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 100; opacity: 0.4; }
+    .botanical-top { position: absolute; top: 0; right: 0; width: 320px; opacity: 0.12; pointer-events: none; }
+    .botanical-left { position: absolute; bottom: 60px; left: -40px; width: 220px; opacity: 0.1; pointer-events: none; transform: scaleX(-1); }
+    .hero { position: relative; background: var(--cream); border-bottom: 1px solid var(--border); padding: 80px 48px 72px; overflow: hidden; opacity: 0; animation: fadeIn 1.2s ease forwards 0.2s; }
+    .hero-inner { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 48px; }
+    .eyebrow { font-size: 0.7rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sage); margin-bottom: 20px; font-weight: 400; }
+    h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(3rem, 6vw, 5.5rem); font-weight: 300; line-height: 1.05; margin-bottom: 20px; }
+    h1 em { font-style: italic; color: var(--sage-dark); }
+    .project-by { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1rem; color: var(--sage-dark); margin-bottom: 16px; }
+    .hero-desc { font-size: 0.88rem; color: var(--text-muted); line-height: 1.8; max-width: 380px; }
+    .hero-aqi { text-align: center; padding: 36px 40px; border: 1px solid var(--border); background: var(--warm-white); min-width: 180px; }
+    .hero-aqi-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+    .hero-aqi-number { font-family: 'Cormorant Garamond', serif; font-size: 5rem; font-weight: 300; line-height: 1; color: var(--sage-dark); transition: color 0.8s; }
+    .hero-aqi-status { font-size: 0.75rem; letter-spacing: 0.1em; color: var(--text-muted); margin-top: 10px; text-transform: uppercase; }
+    .divider { display: flex; align-items: center; gap: 16px; max-width: 900px; margin: 0 auto; padding: 0 48px; }
+    .divider-line { flex: 1; height: 1px; background: var(--border); }
+    .divider-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--taupe); }
+    .main { max-width: 900px; margin: 0 auto; padding: 64px 48px 80px; }
+    .section-heading { display: flex; align-items: center; gap: 20px; margin-bottom: 32px; }
+    .section-title { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 300; font-style: italic; white-space: nowrap; }
+    .section-line { flex: 1; height: 1px; background: var(--border); }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--border); margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 0.6s; }
+    .stat { padding: 36px 32px; border-right: 1px solid var(--border); transition: background 0.3s; }
+    .stat:last-child { border-right: none; }
+    .stat:hover { background: var(--cream); }
+    .stat-icon { font-size: 1.2rem; margin-bottom: 16px; opacity: 0.7; }
+    .stat-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 300; line-height: 1; }
+    .stat-unit { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
+    .health-section { margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 0.7s; }
+    .health-card { border: 1px solid var(--border); padding: 40px; display: grid; grid-template-columns: auto 1fr; gap: 32px; align-items: start; transition: background 0.3s; }
+    .health-card:hover { background: var(--cream); }
+    .health-badge { width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; background: var(--cream); border: 1px solid var(--border); flex-shrink: 0; }
+    .health-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300; margin-bottom: 12px; }
+    .health-recs { list-style: none; }
+    .health-recs li { font-size: 0.85rem; color: var(--text-muted); line-height: 1.8; padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
+    .health-recs li:last-child { border-bottom: none; }
+    .health-recs li::before { content: '·'; color: var(--taupe); flex-shrink: 0; }
+    .chart-wrap { border: 1px solid var(--border); padding: 40px; margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 0.9s; }
+    .scale-section { margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 1.0s; }
+    .scale-bar { height: 6px; border-radius: 100px; background: linear-gradient(to right, #7db87d, #c8c84a, #d4884a, #c84a4a); margin: 16px 0 10px; position: relative; }
+    .scale-indicator { position: absolute; top: -5px; width: 16px; height: 16px; border-radius: 50%; background: var(--warm-white); border: 2px solid var(--sage-dark); transform: translateX(-50%); transition: left 1.2s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+    .scale-labels { display: flex; justify-content: space-between; font-size: 0.65rem; letter-spacing: 0.1em; color: var(--text-muted); text-transform: uppercase; }
+    .pollutants-section { margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 1.05s; }
+    .pollutant-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); }
+    .pollutant-card { padding: 32px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); transition: background 0.3s; }
+    .pollutant-card:hover { background: var(--cream); }
+    .pollutant-card:nth-child(2n) { border-right: none; }
+    .pollutant-card:nth-last-child(-n+2) { border-bottom: none; }
+    .pollutant-name { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+    .pollutant-val { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 300; margin-bottom: 6px; }
+    .pollutant-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; }
+    .pollutant-bar-bg { height: 3px; background: var(--border); border-radius: 100px; margin-top: 12px; }
+    .pollutant-bar-fill { height: 3px; border-radius: 100px; transition: width 1.2s ease; }
+    .uhi-section { margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 1.1s; }
+    .uhi-visual { border: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; }
+    .uhi-zone { padding: 40px 32px; text-align: center; border-right: 1px solid var(--border); position: relative; }
+    .uhi-zone:last-child { border-right: none; }
+    .uhi-zone-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; }
+    .uhi-temp { font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-weight: 300; line-height: 1; margin-bottom: 12px; }
+    .uhi-temp.hot { color: #c84a4a; }
+    .uhi-temp.cool { color: var(--sage-dark); }
+    .uhi-desc { font-size: 0.78rem; color: var(--text-muted); line-height: 1.7; }
+    .uhi-diff { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--warm-white); border: 1px solid var(--border); padding: 8px 14px; border-radius: 100px; font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; z-index: 2; }
+    .uhi-explainer { padding: 28px 40px; background: var(--cream); border: 1px solid var(--border); border-top: none; font-size: 0.85rem; color: var(--text-muted); line-height: 1.9; }
+    .fact-section { margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 1.2s; }
+    .fact-card { border: 1px solid var(--border); padding: 40px; display: flex; gap: 28px; align-items: flex-start; cursor: pointer; transition: background 0.3s; user-select: none; }
+    .fact-card:hover { background: var(--cream); }
+    .fact-icon { font-size: 2rem; flex-shrink: 0; }
+    .fact-label { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--sage); margin-bottom: 10px; }
+    .fact-text { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 300; line-height: 1.5; }
+    .fact-tap { font-size: 0.7rem; color: var(--text-muted); margin-top: 12px; }
+    .about-section { background: var(--cream); border: 1px solid var(--border); padding: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; margin-bottom: 64px; opacity: 0; animation: fadeIn 1s ease forwards 1.3s; }
+    .about-title { font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-weight: 300; line-height: 1.2; margin-bottom: 16px; }
+    .about-text { font-size: 0.85rem; line-height: 1.9; color: var(--text-muted); }
+    .about-stat { text-align: center; padding: 32px; border: 1px solid var(--border); background: var(--warm-white); }
+    .about-stat-num { font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-weight: 300; color: var(--sage-dark); }
+    .about-stat-label { font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-muted); margin-top: 8px; }
+    footer { border-top: 1px solid var(--border); padding: 32px 48px; display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+    .live-dot { display: inline-flex; align-items: center; gap: 8px; }
+    .live-dot::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--sage); animation: pulse 2.5s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 640px) {
+      .hero-inner, .about-section, .uhi-visual, .pollutant-grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr; }
+      .stat, .uhi-zone, .pollutant-card { border-right: none !important; }
+      .hero, .main, footer { padding-left: 24px; padding-right: 24px; }
+      .health-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Botanical vein layer -->
+<div style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;">
+  <svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:0.055;">
+    <path d="M-20 900 C40 800, 20 700, 60 600 C100 500, 80 400, 120 300 C160 200, 140 100, 180 0" stroke="#4a6741" stroke-width="1.2"/>
+    <path d="M50 750 C90 730, 130 720, 170 700" stroke="#4a6741" stroke-width="0.8"/>
+    <path d="M65 680 C95 650, 140 640, 175 620" stroke="#4a6741" stroke-width="0.8"/>
+    <path d="M80 580 C60 550, 30 530, 10 510" stroke="#4a6741" stroke-width="0.7"/>
+    <path d="M95 490 C130 470, 170 460, 210 445" stroke="#4a6741" stroke-width="0.7"/>
+    <path d="M110 390 C80 365, 50 350, 20 335" stroke="#4a6741" stroke-width="0.6"/>
+    <path d="M125 300 C160 278, 200 265, 240 250" stroke="#4a6741" stroke-width="0.6"/>
+    <ellipse cx="185" cy="698" rx="12" ry="6" fill="#7d9b76" transform="rotate(-20 185 698)"/>
+    <ellipse cx="155" cy="635" rx="10" ry="5" fill="#7d9b76" transform="rotate(15 155 635)"/>
+    <ellipse cx="215" cy="443" rx="11" ry="5" fill="#a8c4a2" transform="rotate(-10 215 443)"/>
+    <ellipse cx="245" cy="248" rx="10" ry="5" fill="#7d9b76" transform="rotate(20 245 248)"/>
+    <ellipse cx="15" cy="508" rx="9" ry="4" fill="#a8c4a2" transform="rotate(5 15 508)"/>
+    <path d="M1460 0 C1400 100, 1420 200, 1380 300 C1340 400, 1360 500, 1320 600 C1280 700, 1300 800, 1260 900" stroke="#4a6741" stroke-width="1.2"/>
+    <path d="M1400 150 C1360 170, 1320 175, 1280 180" stroke="#4a6741" stroke-width="0.8"/>
+    <path d="M1390 250 C1420 270, 1450 275, 1460 285" stroke="#4a6741" stroke-width="0.7"/>
+    <path d="M1370 380 C1330 400, 1290 405, 1255 415" stroke="#4a6741" stroke-width="0.7"/>
+    <path d="M1350 490 C1390 505, 1420 510, 1450 520" stroke="#4a6741" stroke-width="0.7"/>
+    <path d="M1330 600 C1290 615, 1250 618, 1215 625" stroke="#4a6741" stroke-width="0.6"/>
+    <path d="M1305 720 C1340 735, 1370 738, 1400 748" stroke="#4a6741" stroke-width="0.6"/>
+    <ellipse cx="1272" cy="182" rx="12" ry="5" fill="#7d9b76" transform="rotate(10 1272 182)"/>
+    <ellipse cx="1248" cy="416" rx="11" ry="5" fill="#a8c4a2" transform="rotate(-15 1248 416)"/>
+    <ellipse cx="1208" cy="627" rx="10" ry="5" fill="#7d9b76" transform="rotate(8 1208 627)"/>
+    <ellipse cx="1408" cy="750" rx="11" ry="5" fill="#a8c4a2" transform="rotate(-20 1408 750)"/>
+    <path d="M720 -10 C700 150, 740 300, 710 450 C680 600, 730 750, 705 910" stroke="#7d9b76" stroke-width="0.5" stroke-dasharray="4 12"/>
+    <ellipse cx="350" cy="180" rx="9" ry="4" fill="#a8c4a2" transform="rotate(-25 350 180)" opacity="0.6"/>
+    <ellipse cx="365" cy="172" rx="7" ry="3" fill="#7d9b76" transform="rotate(10 365 172)" opacity="0.5"/>
+    <ellipse cx="1050" cy="720" rx="9" ry="4" fill="#a8c4a2" transform="rotate(20 1050 720)" opacity="0.6"/>
+    <ellipse cx="1065" cy="710" rx="7" ry="3" fill="#7d9b76" transform="rotate(-10 1065 710)" opacity="0.5"/>
+    <ellipse cx="600" cy="850" rx="8" ry="4" fill="#a8c4a2" transform="rotate(15 600 850)" opacity="0.5"/>
+    <ellipse cx="840" cy="80" rx="8" ry="4" fill="#7d9b76" transform="rotate(-20 840 80)" opacity="0.5"/>
+    <circle cx="300" cy="400" r="2" fill="#c4b49a" opacity="0.5"/>
+    <circle cx="450" cy="620" r="1.5" fill="#c4b49a" opacity="0.4"/>
+    <circle cx="1100" cy="300" r="2" fill="#c4b49a" opacity="0.5"/>
+    <circle cx="950" cy="550" r="1.5" fill="#c4b49a" opacity="0.4"/>
+    <circle cx="680" cy="200" r="2" fill="#c4b49a" opacity="0.4"/>
+    <circle cx="200" cy="750" r="1.5" fill="#c4b49a" opacity="0.3"/>
+  </svg>
+</div>
+
+<section class="hero">
+    <svg class="botanical-top" viewBox="0 0 300 300" fill="none">
+      <path d="M280 20 C220 60, 180 40, 150 80 C120 120, 140 160, 100 180 C60 200, 20 180, 10 220" stroke="#4a6741" stroke-width="1.5" fill="none"/>
+      <ellipse cx="170" cy="60" rx="18" ry="10" fill="#7d9b76" transform="rotate(-30 170 60)"/>
+      <ellipse cx="130" cy="100" rx="15" ry="8" fill="#7d9b76" transform="rotate(20 130 100)"/>
+      <ellipse cx="110" cy="155" rx="20" ry="11" fill="#a8c4a2" transform="rotate(-10 110 155)"/>
+      <ellipse cx="75" cy="195" rx="14" ry="7" fill="#7d9b76" transform="rotate(15 75 195)"/>
+      <circle cx="250" cy="30" r="5" fill="#c4b49a" opacity="0.6"/>
+      <circle cx="200" cy="50" r="3" fill="#c4b49a" opacity="0.4"/>
+    </svg>
+    <svg class="botanical-left" viewBox="0 0 220 280" fill="none">
+      <path d="M180 260 C160 200, 170 160, 140 120 C110 80, 80 90, 60 50 C40 20, 50 0, 30 10" stroke="#4a6741" stroke-width="1.5" fill="none"/>
+      <ellipse cx="150" cy="140" rx="16" ry="9" fill="#7d9b76" transform="rotate(25 150 140)"/>
+      <ellipse cx="120" cy="105" rx="14" ry="7" fill="#a8c4a2" transform="rotate(-15 120 105)"/>
+      <ellipse cx="80" cy="70" rx="18" ry="9" fill="#7d9b76" transform="rotate(10 80 70)"/>
+    </svg>
+    <div class="hero-inner">
+      <div>
+        <div class="eyebrow">🌿 Earth Day · Environmental Science Project</div>
+        <h1>Sunnyvale<br><em>Air Quality</em></h1>
+        <div class="project-by">A project by Aashiga Moorthy</div>
+        <p class="hero-desc">Live environmental data for Sunnyvale, CA. This project tracks air quality and urban heat patterns to help residents understand what they are breathing and make genuinely informed decisions about their time outdoors.</p>
+      </div>
+      <div class="hero-aqi">
+        <div class="hero-aqi-label">Current AQI</div>
+        <div class="hero-aqi-number" id="aqi">--</div>
+        <div class="hero-aqi-status" id="aqi-status">Loading...</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"><div class="divider-line"></div><div class="divider-dot"></div><div class="divider-line"></div></div>
+
+  <main class="main">
+
+    <div class="stats">
+      <div class="stat"><div class="stat-icon">🌡️</div><div class="stat-label">Temperature</div><div class="stat-value" id="temp">--</div><div class="stat-unit">degrees Fahrenheit</div></div>
+      <div class="stat"><div class="stat-icon">💧</div><div class="stat-label">Humidity</div><div class="stat-value" id="humidity">--</div><div class="stat-unit">percent</div></div>
+      <div class="stat"><div class="stat-icon">💨</div><div class="stat-label">Wind Speed</div><div class="stat-value" id="wind">--</div><div class="stat-unit">miles per hour</div></div>
+    </div>
+
+    <div class="health-section">
+      <div class="section-heading"><span class="section-title">Should you go outside?</span><div class="section-line"></div></div>
+      <div class="health-card">
+        <div class="health-badge" id="health-badge">🌿</div>
+        <div>
+          <div class="health-title" id="health-title">Loading recommendations...</div>
+          <ul class="health-recs" id="health-recs"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="section-heading"><span class="section-title">AQI Over Time</span><div class="section-line"></div><span style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted)">Live session</span></div>
+      <canvas id="aqiChart" height="90"></canvas>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="section-heading"><span class="section-title">Past Week in Sunnyvale</span><div class="section-line"></div><span style="font-size:0.65rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted)">7-day AQI history</span></div>
+      <canvas id="historyChart" height="90"></canvas>
+    </div>
+
+    <div class="scale-section">
+      <div class="section-heading"><span class="section-title">Where does Sunnyvale fall?</span><div class="section-line"></div></div>
+      <div class="scale-bar"><div class="scale-indicator" id="scale-dot" style="left:0%"></div></div>
+      <div class="scale-labels"><span>Good (0)</span><span>Moderate (51)</span><span>Sensitive (101)</span><span>Unhealthy (151+)</span></div>
+    </div>
+
+    <div class="pollutants-section">
+      <div class="section-heading"><span class="section-title">What's in the air?</span><div class="section-line"></div></div>
+      <div class="pollutant-grid">
+        <div class="pollutant-card">
+          <div class="pollutant-name">PM2.5 — Fine Particles</div>
+          <div class="pollutant-val" id="pm25-val">--</div>
+          <div class="pollutant-desc">Microscopic particles from combustion and vehicle exhaust. At 2.5 micrometers, they bypass the body's natural defenses and lodge deep in lung tissue.</div>
+          <div class="pollutant-bar-bg"><div class="pollutant-bar-fill" id="pm25-bar" style="width:0%;background:#c84a4a"></div></div>
+        </div>
+        <div class="pollutant-card">
+          <div class="pollutant-name">Ozone (O₃)</div>
+          <div class="pollutant-val" id="o3-val">--</div>
+          <div class="pollutant-desc">Ground-level ozone is not emitted directly. It forms when sunlight triggers reactions between vehicle emissions and industrial pollutants, peaking on warm afternoons.</div>
+          <div class="pollutant-bar-bg"><div class="pollutant-bar-fill" id="o3-bar" style="width:0%;background:#d4884a"></div></div>
+        </div>
+        <div class="pollutant-card">
+          <div class="pollutant-name">PM10 — Coarse Particles</div>
+          <div class="pollutant-val" id="pm10-val">--</div>
+          <div class="pollutant-desc">Larger airborne particles from dust, pollen, and construction sites. Less acutely dangerous than PM2.5 but a significant trigger for allergies and respiratory irritation.</div>
+          <div class="pollutant-bar-bg"><div class="pollutant-bar-fill" id="pm10-bar" style="width:0%;background:#c8c84a"></div></div>
+        </div>
+        <div class="pollutant-card">
+          <div class="pollutant-name">Carbon Monoxide (CO)</div>
+          <div class="pollutant-val" id="co-val">--</div>
+          <div class="pollutant-desc">A colorless, odorless byproduct of incomplete combustion. CO binds to hemoglobin in the blood far more readily than oxygen, reducing the body's capacity to carry it.</div>
+          <div class="pollutant-bar-bg"><div class="pollutant-bar-fill" id="co-bar" style="width:0%;background:#7d9b76"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="uhi-section">
+      <div class="section-heading"><span class="section-title">The Urban Heat Island Effect</span><div class="section-line"></div></div>
+      <div class="uhi-visual">
+        <div class="uhi-zone">
+          <div class="uhi-zone-label">🏙️ Urban Sunnyvale</div>
+          <div class="uhi-temp hot" id="urban-temp">--°F</div>
+          <div class="uhi-desc">Dense roads, buildings, and parking lots absorb and retain heat, steadily raising local temperatures and compounding air quality problems.</div>
+          <div class="uhi-diff">↑ ~5°F warmer</div>
+        </div>
+        <div class="uhi-zone">
+          <div class="uhi-zone-label">🌲 Rural Surroundings</div>
+          <div class="uhi-temp cool" id="rural-temp">--°F</div>
+          <div class="uhi-desc">Vegetation, soil, and open land release moisture through evapotranspiration, naturally regulating temperature and keeping surrounding areas significantly cooler.</div>
+        </div>
+      </div>
+      <div class="uhi-explainer">Urban heat islands form when cities replace natural land with pavement, concrete, and buildings that absorb rather than reflect solar energy. In Sunnyvale, this effect is intensified by Silicon Valley's sprawling tech campuses and dense infrastructure. The consequences extend beyond temperature: elevated heat accelerates the photochemical reactions that produce ground-level ozone and particulate smog, creating a direct link between urbanization and the air we breathe every day.</div>
+    </div>
+
+    <div class="fact-section">
+      <div class="section-heading"><span class="section-title">Did you know?</span><div class="section-line"></div></div>
+      <div class="fact-card" onclick="nextFact()">
+        <div class="fact-icon" id="fact-icon">🌱</div>
+        <div>
+          <div class="fact-label">Air Quality Fact</div>
+          <div class="fact-text" id="fact-text">Loading...</div>
+          <div class="fact-tap">Tap to see another fact →</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="about-section">
+      <div>
+        <div class="about-title">Why does air quality matter in Sunnyvale?</div>
+        <p class="about-text">Urban areas like Sunnyvale carry a pollution burden that rural communities simply do not face. Traffic, construction, and the compounding heat of the urban environment push local air quality in ways that are rarely visible but deeply felt. This dashboard draws live data from the EPA's AirNow monitoring network and Open-Meteo to surface what is actually happening in Sunnyvale's atmosphere, right now.</p>
+      </div>
+      <div class="about-stat">
+        <div class="about-stat-num" id="aqi-copy">--</div>
+        <div class="about-stat-label" id="status-copy">Current AQI · Sunnyvale</div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    <span class="live-dot">Live data · updates every 10 min</span>
+    <span>AirNow EPA · Open-Meteo · Sunnyvale, CA</span>
+  </footer>
+
+  <script>
+    const AIRNOW_KEY = '93D81CF2-6116-4DD6-B1A0-03B50B9E863E';
+    const LAT = 37.3688, LON = -122.0363;
+    let currentAQI = 56, factIndex = 0;
+    const aqiHistory = { labels: [], values: [] };
+
+    const FB = {
+      aqi: 56, temp: 71, humidity: 35, wind: 6,
+      pm25: 14.2, o3: 38, pm10: 22, co: 0.4,
+      history: { labels: ['Mon 3/22','Tue 3/23','Wed 3/24','Thu 3/25','Fri 3/26','Sat 3/27','Sun 3/28'], values: [48,63,71,55,42,58,56] }
+    };
+
+    const facts = {
+      good: [
+        { icon: '🌳', text: 'Trees in Sunnyvale collectively remove over 2,000 tons of air pollutants every single year, acting as the city\'s quiet, living filtration system.' },
+        { icon: '🫁', text: 'On a clean air day, your lungs process roughly 2,000 gallons of air. Days like today, that\'s a good thing.' },
+        { icon: '🌿', text: 'A single mature tree absorbs around 48 lbs of CO2 annually while producing enough oxygen to sustain two people.' },
+        { icon: '☀️', text: 'Clean air days in the Bay Area are partly owed to Pacific ocean breezes that sweep inland pollutants away from coastal communities.' },
+      ],
+      moderate: [
+        { icon: '😮‍💨', text: 'PM2.5 particles are roughly 30 times smaller than a human hair, yet they carry enough mass to embed in lung tissue and enter the bloodstream.' },
+        { icon: '🚗', text: 'Vehicle emissions are responsible for more than half of all air pollution measured in the Santa Clara Valley on a typical weekday.' },
+        { icon: '🌫️', text: 'Moderate AQI days in Silicon Valley are often driven by morning commute emissions trapped under a temperature inversion layer.' },
+        { icon: '🏃', text: 'Exercising outdoors on moderate air quality days can increase the volume of pollutants your lungs process by up to three times.' },
+      ],
+      sensitive: [
+        { icon: '⚠️', text: 'Children breathe about 50% more air per pound of body weight than adults do, making early exposure to pollutants especially consequential for developing lungs.' },
+        { icon: '🫀', text: 'Research has shown that short-term spikes in PM2.5 concentration can measurably elevate the risk of cardiac events within 24 hours in vulnerable individuals.' },
+        { icon: '🏙️', text: 'Downtown Sunnyvale can run as much as 7 degrees Fahrenheit warmer than surrounding open land, a textbook urban heat island pattern.' },
+        { icon: '🌬️', text: 'During wildfire season, smoke from fires hundreds of miles away can shift Sunnyvale\'s AQI from healthy to hazardous within a single afternoon.' },
+      ],
+      unhealthy: [
+        { icon: '🔴', text: 'At the peak of California\'s 2018 wildfire season, Bay Area AQI exceeded 200 for multiple consecutive days, a level epidemiologists compare to smoking a pack of cigarettes daily.' },
+        { icon: '🏭', text: 'On high-pollution days, keeping windows open can actually worsen indoor air quality, making sealed, filtered indoor spaces the safer environment.' },
+        { icon: '🧪', text: 'Ground-level ozone is not released directly into the air. It is synthesized through photochemical reactions between sunlight and pollutants already present in the atmosphere.' },
+        { icon: '💨', text: 'N95 respirators are rated to filter 95% of airborne particles at the relevant size range, making them genuinely effective protection on unhealthy air days.' },
+      ]
+    };
+
+    const cat = aqi => aqi <= 50 ? 'good' : aqi <= 100 ? 'moderate' : aqi <= 150 ? 'sensitive' : 'unhealthy';
+    const info = aqi => aqi <= 50 ? { status:'Good', color:'#4a6741' } : aqi <= 100 ? { status:'Moderate', color:'#8a7a30' } : aqi <= 150 ? { status:'Sensitive Groups', color:'#a05a20' } : { status:'Unhealthy', color:'#8a2020' };
+    const health = aqi => {
+      if (aqi <= 50) return { badge:'😊', title:'A genuinely good day to be outside', recs:['All outdoor activities are safe for everyone, including children and older adults','Ideal conditions for running, cycling, or spending extended time in the park','Open your windows freely — natural ventilation is beneficial today','No precautions are necessary for any group'] };
+      if (aqi <= 100) return { badge:'🙂', title:'Outdoor activity is fine for most people', recs:['Most people can go about their outdoor routines without concern','Unusually sensitive individuals may want to shorten high-intensity outdoor exercise','If you have asthma, keep an inhaler on hand as a precaution','Air quality is acceptable but worth monitoring if you notice any irritation'] };
+      if (aqi <= 150) return { badge:'😷', title:'Sensitive groups should be cautious today', recs:['Children, older adults, and those with respiratory conditions should limit time outdoors','Shift strenuous exercise to indoor spaces where possible','Keep windows closed and use an air purifier if you have one','Stay alert for symptoms like coughing, chest tightness, or eye irritation'] };
+      return { badge:'🔴', title:'Limit outdoor exposure today', recs:['Everyone, not just sensitive groups, should reduce time spent outside','People with asthma or heart conditions should stay indoors as much as possible','Wear an N95 respirator if outdoor activity is unavoidable','Keep all windows and doors closed and run air conditioning on recirculate mode'] };
+    };
+
+    function setPollutant(id, barId, value, unit, max, color) {
+      document.getElementById(id).textContent = value + ' ' + unit;
+      document.getElementById(barId).style.width = Math.min((parseFloat(value) / max) * 100, 100) + '%';
+      document.getElementById(barId).style.background = color;
+    }
+
+    function applyAQI(aqi) {
+      currentAQI = aqi;
+      const i = info(aqi), h = health(aqi);
+      document.getElementById('aqi').textContent = aqi;
+      document.getElementById('aqi').style.color = i.color;
+      document.getElementById('aqi-status').textContent = i.status;
+      document.getElementById('aqi-copy').textContent = aqi;
+      document.getElementById('aqi-copy').style.color = i.color;
+      document.getElementById('status-copy').textContent = i.status + ' · Sunnyvale, CA';
+      document.getElementById('scale-dot').style.left = Math.min((aqi/200)*100, 100) + '%';
+      document.getElementById('health-badge').textContent = h.badge;
+      document.getElementById('health-title').textContent = h.title;
+      document.getElementById('health-recs').innerHTML = h.recs.map(r => `<li>${r}</li>`).join('');
+      const f = facts[cat(aqi)][0];
+      document.getElementById('fact-icon').textContent = f.icon;
+      document.getElementById('fact-text').textContent = f.text;
+      const now = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+      aqiHistory.labels.push(now); aqiHistory.values.push(aqi);
+      if (aqiHistory.labels.length > 8) { aqiHistory.labels.shift(); aqiHistory.values.shift(); }
+      liveChart.update();
+    }
+
+    function applyWeather(temp, hum, wind) {
+      document.getElementById('temp').textContent = temp;
+      document.getElementById('humidity').textContent = hum;
+      document.getElementById('wind').textContent = wind;
+      document.getElementById('urban-temp').textContent = temp + '°F';
+      document.getElementById('rural-temp').textContent = (temp - 5) + '°F';
+    }
+
+    function nextFact() {
+      const list = facts[cat(currentAQI)];
+      factIndex = (factIndex + 1) % list.length;
+      document.getElementById('fact-icon').textContent = list[factIndex].icon;
+      document.getElementById('fact-text').textContent = list[factIndex].text;
+    }
+
+    const liveChart = new Chart(document.getElementById('aqiChart').getContext('2d'), {
+      type: 'line',
+      data: { labels: aqiHistory.labels, datasets: [{ data: aqiHistory.values, borderColor:'#7d9b76', backgroundColor:'rgba(125,155,118,0.07)', borderWidth:2, pointBackgroundColor:'#4a6741', pointRadius:4, pointHoverRadius:7, fill:true, tension:0.4 }] },
+      options: { responsive:true, plugins:{ legend:{display:false}, tooltip:{backgroundColor:'#f7f4ef',titleColor:'#2c2c2a',bodyColor:'#4a6741',borderColor:'#e2d9ce',borderWidth:1,padding:12} }, scales:{ x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a8478',font:{family:'Jost',size:11}}}, y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a8478',font:{family:'Jost',size:11}},min:0} } }
+    });
+
+    let historyBuilt = false;
+    function buildHistoryChart(labels, values) {
+      if (historyBuilt) return;
+      historyBuilt = true;
+      new Chart(document.getElementById('historyChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data:values, backgroundColor:values.map(v=>v<=50?'rgba(125,155,118,0.5)':v<=100?'rgba(200,200,74,0.5)':'rgba(212,136,74,0.5)'), borderColor:values.map(v=>v<=50?'#7d9b76':v<=100?'#c8c84a':'#d4884a'), borderWidth:1.5, borderRadius:4 }] },
+        options: { responsive:true, plugins:{legend:{display:false},tooltip:{backgroundColor:'#f7f4ef',titleColor:'#2c2c2a',bodyColor:'#4a6741',borderColor:'#e2d9ce',borderWidth:1,padding:12}}, scales:{ x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a8478',font:{family:'Jost',size:11}}}, y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a8478',font:{family:'Jost',size:11}},min:0} } }
+      });
+    }
+
+    async function init() {
+      // Apply fallbacks immediately
+      applyAQI(FB.aqi);
+      applyWeather(FB.temp, FB.humidity, FB.wind);
+      setPollutant('pm25-val','pm25-bar',FB.pm25,'µg/m³',35,'#c84a4a');
+      setPollutant('o3-val','o3-bar',FB.o3,'ppb',70,'#d4884a');
+      setPollutant('pm10-val','pm10-bar',FB.pm10,'µg/m³',50,'#c8c84a');
+      setPollutant('co-val','co-bar',FB.co,'ppm',2,'#7d9b76');
+      buildHistoryChart(FB.history.labels, FB.history.values);
+
+      // Live AQI
+      try {
+        const r = await fetch(`https://www.airnowapi.org/aq/observation/latLong/current/?format=application/json&latitude=${LAT}&longitude=${LON}&distance=10&API_KEY=${AIRNOW_KEY}`);
+        const d = await r.json();
+        const pm = d.find(x => x.ParameterName === 'PM2.5') || d[0];
+        if (pm) applyAQI(pm.AQI);
+      } catch(e) {}
+
+      // Live weather
+      try {
+        const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=temperature_2m,relative_humidity_2m,wind_speed_10m&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+        const d = await r.json();
+        applyWeather(Math.round(d.current.temperature_2m), d.current.relative_humidity_2m, Math.round(d.current.wind_speed_10m));
+      } catch(e) {}
+
+      // Live pollutants
+      try {
+        const r = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=pm2_5,ozone,pm10,carbon_monoxide`);
+        const d = await r.json();
+        if (d.current) {
+          setPollutant('pm25-val','pm25-bar',(d.current.pm2_5||FB.pm25).toFixed(1),'µg/m³',35,'#c84a4a');
+          setPollutant('o3-val','o3-bar',(d.current.ozone||FB.o3).toFixed(0),'µg/m³',180,'#d4884a');
+          setPollutant('pm10-val','pm10-bar',(d.current.pm10||FB.pm10).toFixed(1),'µg/m³',50,'#c8c84a');
+          setPollutant('co-val','co-bar',((d.current.carbon_monoxide||FB.co*1000)/1000).toFixed(2),'ppm',2,'#7d9b76');
+        }
+      } catch(e) {}
+
+      // Live 7-day history
+      try {
+        const end = new Date(), start = new Date();
+        start.setDate(start.getDate() - 7);
+        const fmt = d => d.toISOString().split('T')[0];
+        const r = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&hourly=us_aqi&start_date=${fmt(start)}&end_date=${fmt(end)}`);
+        const d = await r.json();
+        const byDay = {};
+        d.hourly.time.forEach((t, i) => {
+          const day = t.split('T')[0];
+          if (!byDay[day]) byDay[day] = [];
+          if (d.hourly.us_aqi[i] !== null) byDay[day].push(d.hourly.us_aqi[i]);
+        });
+        const labels = Object.keys(byDay).map(day => new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }));
+        const values = Object.values(byDay).map(arr => Math.round(arr.reduce((a,b)=>a+b,0)/arr.length));
+        historyBuilt = false;
+        buildHistoryChart(labels, values);
+      } catch(e) {}
+    }
+
+    init();
+    setInterval(init, 600000);
+  </script>
+</body>
+</html>
